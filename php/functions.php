@@ -64,6 +64,118 @@
         }
     }
 
+    function hasFees($id) {
+        $sql = "SELECT
+                    Fee.FeeID
+                FROM
+                    Fee
+                WHERE
+                    StudentID = ?";
+        
+        if (!($stmt = $GLOBALS['db']->prepare($sql))) {
+            print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+        }
+        
+        if (!$stmt->bind_param('i', $id)){
+            print "Binding parameters failed: (" . $stmt->errno . ")" . $stmt->error;
+        }
+
+        if (!$stmt->execute()){
+            print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
+        }
+        
+        $result = $stmt->get_result();
+        return mysqli_num_rows($result) != 0;
+    }
+
+    function hasConflict($id, $course) {
+        $sql = "SELECT
+                    Course.MeetingID
+                FROM
+                    Course
+                INNER JOIN
+                    StudentCourse
+                ON
+                    Course.CourseID = StudentCourse.CourseID
+                WHERE
+                    StudentCourse.StudentID = $id";
+        
+        $query = $GLOBALS["db"]->query($sql);
+
+        if (!$query) {
+            print $GLOBALS["db"]->error;
+        }
+        
+        $meetings = mysqli_fetch_assoc($query);
+
+        $meetingIDSQL = "SELECT
+                            Course.MeetingID
+                        FROM
+                            Course
+                        WHERE
+                            Course.CourseID = $course";
+        
+        $query = $GLOBALS["db"]->query($meetingIDSQL);
+
+        if (!$query) {
+            print $GLOBALS["db"]->error;
+        }
+        
+        $meetingID = mysqli_fetch_assoc($query);
+        return $meetings["MeetingID"] == $meetingID["MeetingID"];
+    }
+
+    function addCourse($id, $course) {
+        if (hasFees($id)) {
+            print "This student cannot be registered for any additional courses because there are outstanding fees";
+        } else if (hasConflict($id, $course)) {
+            print "There is a conflict with this course. Cannot add";
+        } else {
+            $sql = "INSERT INTO
+                    StudentCourse
+                    (
+                        StudentID,
+                        CourseID
+                    )
+                    VALUES
+                    (
+                        $id,
+                        $course
+                    )";
+            
+            $query = $GLOBALS["db"]->query($sql);
+
+            if ($query) {
+                print "Course Added";
+            } else {
+                print $GLOBALS["db"]->error;
+            }
+        }
+    }
+
+    function deleteCourse($id, $course) {
+        $sql = "DELETE FROM
+                    StudentCourse
+                WHERE
+                    StudentID = ?
+                AND
+                    CourseID = ?";
+        
+        if (!($stmt = $GLOBALS['db']->prepare($sql))) {
+            print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+        }
+        
+        if (!$stmt->bind_param('ii', $id, $course)){
+            print "Binding parameters failed: (" . $stmt->errno . ")" . $stmt->error;
+        }
+
+        if (!$stmt->execute()){
+            print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
+        } else {
+            print "Successfully removed the course";
+        }
+    }
+
     function updateGrade($gradeID, $studentID, $courseID) {
         // Prepare the SQL statement
         $sql = "UPDATE
@@ -187,6 +299,60 @@
             print "Execute failed: (" . $sectionStmt->errno .")" . $sectionStmt->error;
         } else {
             print "Saved!";
+        }
+    }
+
+    function viewFees($student) {
+        $sql = "SELECT
+                    Fee.FeeID,
+                    Fee.FeeType,
+                    Fee.FeeAmount,
+                    Fee.FeeDueDate
+                FROM
+                    Fee
+                WHERE
+                    StudentID = ?";
+        
+        if (!($stmt = $GLOBALS['db']->prepare($sql))) {
+            print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+        }
+        
+        if (!$stmt->bind_param('i', $student)){
+            print "Binding parameters failed: (" . $stmt->errno . ")" . $stmt->error;
+        }
+
+        if (!$stmt->execute()){
+            print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
+        }
+
+        $result = $stmt->get_result();
+        
+        if (mysqli_num_rows($result) == 0) {
+            print "No fees to display";
+        } else {
+?>
+            <table>
+                <tr>
+                    <th>Fee ID</th>
+                    <th>Fee Type</th>
+                    <th>Fee Amount</th>
+                    <th>Due Date</th>
+                </tr>
+    <?php
+            while ($row = $result->fetch_assoc()) {
+    ?>
+                <tr class="feeRow" data-href="../fee/index.php?id=<?= $row["FeeID"] ?>&type=<?= $row["FeeType"] ?>&amount=<?= $row["FeeAmount"] ?>&dueDate=<?= $row["FeeDueDate"] ?>" title="Edit Fee">
+                    <td><?= $row["FeeID"] ?></td>
+                    <td><?= $row["FeeType"] ?></td>
+                    <td><?= $row["FeeAmount"] ?></td>
+                    <td>
+        <?php
+                        print date_format(date_create($row["FeeDueDate"]), 'F j, Y g:i A');
+        ?>
+                    </td>
+            </table>
+    <?php
+            }
         }
     }
 
@@ -346,8 +512,8 @@
     <?php
     }
 
-    function viewCourses($search=FALSE, $type="Course.CourseCode", $searchText="") {
-        if ($_SESSION["type"] != 2) {
+    function viewCourses($search=FALSE, $type="Course.CourseCode", $searchText="", $student=0) {
+        if ($_SESSION["type"] != 2 && ($student == 0)) {
             $sql = "SELECT
                         Course.CourseID,
                         Course.CourseCode,
@@ -376,6 +542,43 @@
 					ON
 						Course.MeetingID = Meeting.MeetingID
                     WHERE
+                        $type LIKE '%$searchText%'
+                    ORDER BY $type";
+        } else if ($_SESSION["type"] != 2 && ($student != 0)) {
+            $sql = "SELECT
+                        Section.SectionID,
+                        Section.SectionLetter,
+                        Section.TeacherID,
+                        Employee.EmployeeFirstName,
+                        Employee.EmployeeLastName,
+                        Course.CourseID,
+                        Course.CourseCode,
+                        Course.CourseName,
+                        Meeting.MeetingID,
+                        Meeting.MeetingStartTime,
+                        Meeting.MeetingEndTime,
+                        Meeting.MeetingDay
+                    FROM
+                        Section
+                    INNER JOIN
+                        Course
+                    ON
+                        Section.SectionID = Course.CourseID
+                    INNER JOIN
+                        Meeting
+                    ON
+                        Course.MeetingID = Meeting.MeetingID
+					INNER JOIN
+						StudentCourse
+					ON
+						Course.CourseID = StudentCourse.CourseID
+					INNER JOIN
+						Employee
+					ON
+						Employee.EmployeeID = Section.TeacherID
+                    WHERE
+                        StudentCourse.StudentID = $student
+                    AND
                         $type LIKE '%$searchText%'
                     ORDER BY $type";
         } else {

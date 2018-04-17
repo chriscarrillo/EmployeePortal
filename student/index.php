@@ -27,6 +27,9 @@
     </header>
     
     <div id="content" class="clear">
+        <?php
+            if ($_SESSION["type"] == 0) {
+        ?>
         <h2>Edit Student</h2>
         <form action="" method="POST" id="editStudent">
             <input type="text" name="firstName" value="<?= $_GET["firstName"] ?>" required /><br />
@@ -67,8 +70,152 @@
         </form>
         <script type="text/javascript">select("#studentAdvisor", <?= $_GET["advisor"] ?>);</script>
         <?php
-            if (isset($_POST["editStudent"])) {
-                updateStudent($_GET["id"], $_POST["firstName"], $_POST["lastName"], $_POST["advisor"]);
+                if (isset($_POST["editStudent"])) {
+                    updateStudent($_GET["id"], $_POST["firstName"], $_POST["lastName"], $_POST["advisor"]);
+                }
+            }
+        ?>
+        
+        <h2><?= $_GET["firstName"] . " " . $_GET["lastName"] . "'s " ?>Fees</h2>
+        
+        <?php
+            viewFees($_GET["id"]);
+            
+            if ($_SESSION["type"] != 2) {
+        ?>
+        
+        <a href="../createFee/">Add Fee</a>
+        <?php
+            }
+        ?>
+        
+        <h2><?= $_GET["firstName"] . " " . $_GET["lastName"] . "'s " ?>Courses</h2>
+        <?php
+            viewCourses(FALSE, "Course.CourseCode", "", $_GET["id"]);
+        ?>
+        
+        <form action="" method="POST">
+            <select name="courseToAdd">
+                <option hidden>Select Course to Add...</option>
+                <?php 
+                    // Prepare the SQL statement
+                    $courseSQL = "SELECT
+                                    Course.CourseID,
+                                    Course.CourseCode,
+                                    Course.CourseName,
+                                    Section.SectionID,
+                                    Section.SectionLetter,
+                                    Employee.EmployeeID,
+                                    Employee.EmployeeFirstName,
+                                    Employee.EmployeeLastName,
+                                    Meeting.MeetingID,
+                                    Meeting.MeetingStartTime,
+                                    Meeting.MeetingEndTime,
+                                    Meeting.MeetingDay
+                                FROM
+                                    Course
+                                INNER JOIN
+                                    Section
+                                ON
+                                    Course.SectionID = Section.SectionID
+                                INNER JOIN
+                                    Employee
+                                ON
+                                    Section.TeacherID = Employee.EmployeeID
+                                INNER JOIN
+                                    Meeting
+                                ON
+                                    Course.MeetingID = Meeting.MeetingID
+                                ORDER BY Course.CourseCode";
+
+                    if (!($stmt = $GLOBALS['db']->prepare($courseSQL))) {
+                        print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+                    }
+
+                    // Execute the statement
+                    if (!$stmt->execute()){
+                        print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
+                    }
+                
+                    $result = $stmt->get_result();
+                    while ($row = $result->fetch_assoc()) {
+                ?>
+                <option value="<?= $row["CourseID"] ?>"><?= $row["CourseCode"] . "-" . $row["SectionLetter"] . " " . $row["CourseName"] . ", " . $row["EmployeeFirstName"] . " " . $row["EmployeeLastName"] . ", Meets " ?><?php print $row["MeetingDay"] . "'s: " . date_format(date_create($row["MeetingStartTime"]), 'h:i A') . " - " . date_format(date_create($row["MeetingEndTime"]), 'h:i A') ?></option>
+                <?php
+                    }
+                ?>
+            </select>
+            <input type="submit" name="addCourse" value="Add Course" />
+        </form>
+        <?php
+            if (isset($_POST["addCourse"])) {
+                addCourse($_GET["id"], $_POST["courseToAdd"]);
+            }
+        ?>
+        
+        <form action="" method="POST">
+            <select name="courseToDelete">
+                <option hidden>Select Course to Delete...</option>
+                <?php 
+                    // Prepare the SQL statement
+                    $courseSQL = "SELECT
+                                    Section.SectionID,
+                                    Section.SectionLetter,
+                                    Section.TeacherID,
+                                    Employee.EmployeeFirstName,
+                                    Employee.EmployeeLastName,
+                                    Course.CourseID,
+                                    Course.CourseCode,
+                                    Course.CourseName,
+                                    Meeting.MeetingID,
+                                    Meeting.MeetingStartTime,
+                                    Meeting.MeetingEndTime,
+                                    Meeting.MeetingDay
+                                FROM
+                                    Section
+                                INNER JOIN
+                                    Course
+                                ON
+                                    Section.SectionID = Course.CourseID
+                                INNER JOIN
+                                    Meeting
+                                ON
+                                    Course.MeetingID = Meeting.MeetingID
+                                INNER JOIN
+                                    StudentCourse
+                                ON
+                                    Course.CourseID = StudentCourse.CourseID
+                                INNER JOIN
+                                    Employee
+                                ON
+                                    Employee.EmployeeID = Section.TeacherID
+                                WHERE
+                                    StudentCourse.StudentID = '" . $_GET["id"] . "'
+                                ORDER BY Course.CourseCode";
+
+                    if (!($stmt = $GLOBALS['db']->prepare($courseSQL))) {
+                        print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+                    }
+
+                    // Execute the statement
+                    if (!$stmt->execute()){
+                        print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
+                    }
+                
+                    $result = $stmt->get_result();
+                    while ($row = $result->fetch_assoc()) {
+                ?>
+                <option value="<?= $row["CourseID"] ?>"><?= $row["CourseCode"] . "-" . $row["SectionLetter"] . " " . $row["CourseName"] . ", " . $row["EmployeeFirstName"] . " " . $row["EmployeeLastName"] . ", Meets " ?><?php print $row["MeetingDay"] . "'s: " . date_format(date_create($row["MeetingStartTime"]), 'h:i A') . " - " . date_format(date_create($row["MeetingEndTime"]), 'h:i A') ?></option>
+                <?php
+                    }
+                ?>
+            </select>
+            <input type="submit" name="deleteCourse" value="Delete Course" />
+        </form>
+        
+        <?php
+            if (isset($_POST["deleteCourse"])) {
+                deleteCourse($_GET["id"], $_POST["courseToDelete"]);
             }
         ?>
     </div>
