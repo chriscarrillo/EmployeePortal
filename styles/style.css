@@ -64,3 +64,31 @@ header nav a:hover {
 #content th, td {
     padding: 15px;
 }
+
+#content a {
+    display: block;
+    width: 80px;
+    height: 30px;
+    line-height: 30px;
+    text-align: center;
+    color: #FFFFFF;
+    background-color: #2074E0;
+    border: 2px solid #FFFFFF;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.4s;
+}
+
+#content a:hover {
+    color: #2074E0;
+    background-color: #FFFFFF;
+    border: 2px solid #2074E0;
+}
+
+.studentRow, .courseRow {
+    cursor: pointer;
+}
+
+#createStudent input, #createCourse input, #editStudent input, #editCourse input {
+    margin: 0.3% 0%
+}

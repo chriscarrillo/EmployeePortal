@@ -16,8 +16,9 @@
     <header>
         <h1>Employee Portal | <?php print $_SESSION["firstName"] . " " . $_SESSION["lastName"] . " (" . getEmployeeType() . ")"; ?></h1>
         <nav>
-            <a href="../index.php">Home</a>
-            <a href="index.php" class="currentPage">Profile</a>
+            <a href="..">Home</a>
+            <a href="../courses/">Courses</a>
+            <a href="" class="currentPage">Profile</a>
             <a href="../logout.php">Logout</a>
         </nav>
     </header>
