@@ -88,7 +88,7 @@
         return mysqli_num_rows($result) != 0;
     }
 
-    function hasConflict($id, $course) {
+    function hasConflict($id, $course, $isMeeting=FALSE) {
         $sql = "SELECT
                     Course.MeetingID
                 FROM
@@ -104,6 +104,16 @@
 
         if (!$query) {
             print $GLOBALS["db"]->error;
+        }
+        
+        if ($isMeeting) {
+            while ($row = mysqli_fetch_assoc($query)) {
+                if ($row["MeetingID"] == $course) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
         }
         
         $meetings = mysqli_fetch_assoc($query);
@@ -122,6 +132,7 @@
         }
         
         $meetingID = mysqli_fetch_assoc($query);
+        
         return $meetings["MeetingID"] == $meetingID["MeetingID"];
     }
 
@@ -259,46 +270,64 @@
     }
 
     function updateCourse($id, $code, $name, $meeting, $teacher, $sectionID, $sectionLetter) {
-        // Prepare the SQL statement
-        $sql = "UPDATE Course SET
-                CourseCode = ?,
-                CourseName = ?,
-                MeetingID = ?
-                WHERE CourseID = ?";
-        if (!($stmt = $GLOBALS['db']->prepare($sql))) {
-            print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+        
+        $conflict = false;
+        // Get all of the students in the course
+        $studentSQL = "SELECT StudentCourse.StudentID FROM StudentCourse WHERE StudentCourse.CourseID = $id";
+        
+        $result = $GLOBALS["db"]->query($studentSQL);
+        
+        while ($row = mysqli_fetch_assoc($result)) {
+            if (hasConflict($row["StudentID"], $meeting, TRUE)) {
+                $conflict = true;
+                break;
+            }
         }
         
-        // Bind the statement
-        if (!$stmt->bind_param('ssii', $code, $name, $meeting, $id)){
-            print "Binding parameters failed: (" . $stmt->errno . ")" . $stmt->error;
-        }
-
-        // Execute the statement
-        if (!$stmt->execute()){
-            print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
-        }
-        
-        // Update the Section table
-        $sectionSQL = "UPDATE Section SET
-                       SectionLetter = ?,
-                       TeacherID = ?
-                       WHERE SectionID = ?";
-        
-        if (!($sectionStmt = $GLOBALS['db']->prepare($sectionSQL))) {
-            print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
-        }
-        
-        // Bind the statement
-        if (!$sectionStmt->bind_param('sii', $sectionLetter, $teacher, $sectionID)){
-            print "Binding parameters failed: (" . $sectionStmt->errno . ")" . $sectionStmt->error;
-        }
-
-        // Execute the statement
-        if (!$sectionStmt->execute()) {
-            print "Execute failed: (" . $sectionStmt->errno .")" . $sectionStmt->error;
+        if ($conflict) {
+            print "Cannot update the course because the new course time conflicts with a student's schedule";
         } else {
-            print "Saved!";
+            // Prepare the SQL statement
+            $sql = "UPDATE Course SET
+                    CourseCode = ?,
+                    CourseName = ?,
+                    MeetingID = ?
+                    WHERE CourseID = ?";
+            if (!($stmt = $GLOBALS['db']->prepare($sql))) {
+                print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+            }
+
+            // Bind the statement
+            if (!$stmt->bind_param('ssii', $code, $name, $meeting, $id)){
+                print "Binding parameters failed: (" . $stmt->errno . ")" . $stmt->error;
+            }
+
+            // Execute the statement
+            if (!$stmt->execute()){
+                print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
+            }
+
+            // Update the Section table
+            $sectionSQL = "UPDATE Section SET
+                           SectionLetter = ?,
+                           TeacherID = ?
+                           WHERE SectionID = ?";
+
+            if (!($sectionStmt = $GLOBALS['db']->prepare($sectionSQL))) {
+                print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+            }
+
+            // Bind the statement
+            if (!$sectionStmt->bind_param('sii', $sectionLetter, $teacher, $sectionID)){
+                print "Binding parameters failed: (" . $sectionStmt->errno . ")" . $sectionStmt->error;
+            }
+
+            // Execute the statement
+            if (!$sectionStmt->execute()) {
+                print "Execute failed: (" . $sectionStmt->errno .")" . $sectionStmt->error;
+            } else {
+                print "Saved!";
+            }
         }
     }
 
@@ -513,7 +542,7 @@
     }
 
     function viewCourses($search=FALSE, $type="Course.CourseCode", $searchText="", $student=0) {
-        if ($_SESSION["type"] != 2 && ($student == 0)) {
+        if (($_SESSION["type"] != 2) && ($student == 0)) {
             $sql = "SELECT
                         Course.CourseID,
                         Course.CourseCode,
@@ -544,7 +573,7 @@
                     WHERE
                         $type LIKE '%$searchText%'
                     ORDER BY $type";
-        } else if ($_SESSION["type"] != 2 && ($student != 0)) {
+        } else if (($_SESSION["type"] != 2) && ($student != 0)) {
             $sql = "SELECT
                         Section.SectionID,
                         Section.SectionLetter,
@@ -563,7 +592,7 @@
                     INNER JOIN
                         Course
                     ON
-                        Section.SectionID = Course.CourseID
+                        Section.SectionID = Course.SectionID
                     INNER JOIN
                         Meeting
                     ON
