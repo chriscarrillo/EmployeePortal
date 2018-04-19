@@ -48,6 +48,48 @@
             <a href="../createCourse">Add</a>
         <?php
             }
+        
+            if ($_SESSION["type"] == 0) {
+        ?>
+        <form action="" method="POST">
+            <select name="courseToDelete">
+                <option hidden>Select Course to Delete...</option>
+                <?php 
+                    // Prepare the SQL statement
+                    $courseSQL = "SELECT
+                                    Section.SectionID,
+                                    Section.SectionLetter,
+                                    Course.CourseID,
+                                    Course.CourseCode,
+                                    Course.CourseName
+                                FROM
+                                    Section
+                                INNER JOIN
+                                    Course
+                                ON
+                                    Section.SectionID = Course.CourseID
+                                ORDER BY Course.CourseCode";
+
+                    $query = $GLOBALS["db"]->query($courseSQL);
+                
+                    if (!$query) {
+                        print $GLOBALS["db"]->error;
+                    }
+                
+                    while ($row = mysqli_fetch_assoc($query)) {
+                ?>
+            <option value="<?= $row["CourseID"] ?>"><?= $row["CourseCode"] . "-" . $row["SectionLetter"] . " " . $row["CourseName"] ?></option>
+                <?php
+                    }
+                ?>
+            </select>
+            <input type="submit" name="deleteCourse" value="Delete Course" />
+        </form>
+        <?php
+            }
+            if (isset($_POST["deleteCourse"])) {
+                deleteCourseFromDatabase($_POST["courseToDelete"]);
+            }
         ?>
     </div>
 </div>

@@ -110,30 +110,28 @@
             while ($row = mysqli_fetch_assoc($query)) {
                 if ($row["MeetingID"] == $course) {
                     return true;
-                } else {
-                    return false;
                 }
             }
-        }
+        } else {
         
-        $meetings = mysqli_fetch_assoc($query);
+            $meetings = mysqli_fetch_assoc($query);
 
-        $meetingIDSQL = "SELECT
-                            Course.MeetingID
-                        FROM
-                            Course
-                        WHERE
-                            Course.CourseID = $course";
-        
-        $query = $GLOBALS["db"]->query($meetingIDSQL);
+            $meetingIDSQL = "SELECT
+                                Course.MeetingID
+                            FROM
+                                Course
+                            WHERE
+                                Course.CourseID = $course";
 
-        if (!$query) {
-            print $GLOBALS["db"]->error;
+            $query = $GLOBALS["db"]->query($meetingIDSQL);
+
+            if (!$query) {
+                print $GLOBALS["db"]->error;
+            }
+
+            $meetingID = mysqli_fetch_assoc($query);
+            return $meetings["MeetingID"] == $meetingID["MeetingID"];
         }
-        
-        $meetingID = mysqli_fetch_assoc($query);
-        
-        return $meetings["MeetingID"] == $meetingID["MeetingID"];
     }
 
     function addCourse($id, $course) {
@@ -164,6 +162,72 @@
         }
     }
 
+    function addFee($id, $type, $amount, $dueDate) {
+        $sql = "INSERT INTO
+                Fee
+                (
+                    FeeType,
+                    FeeAmount,
+                    FeeDueDate,
+                    StudentID
+                )
+                VALUES
+                (
+                    '$type',
+                    $amount,
+                    '$dueDate',
+                    $id
+                )";
+        
+        $query = $GLOBALS["db"]->query($sql);
+        
+        if ($query) {
+            print "Fee Added";
+        } else {
+            print $GLOBALS["db"]->error;
+        }
+    }
+
+    function deleteFee($id) {
+        $sql = "DELETE FROM
+                    Fee
+                WHERE
+                    FeeID = ?";
+        
+        if (!($stmt = $GLOBALS['db']->prepare($sql))) {
+            print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+        }
+        
+        if (!$stmt->bind_param('i', $id)){
+            print "Binding parameters failed: (" . $stmt->errno . ")" . $stmt->error;
+        }
+
+        if (!$stmt->execute()){
+            print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
+        } else {
+            print "Successfully removed the fee";
+        }
+    }
+
+    function deleteAllFees($id) {
+        $sql = "DELETE FROM
+                    Fee
+                WHERE
+                    StudentID = ?";
+        
+        if (!($stmt = $GLOBALS['db']->prepare($sql))) {
+            print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+        }
+        
+        if (!$stmt->bind_param('i', $id)){
+            print "Binding parameters failed: (" . $stmt->errno . ")" . $stmt->error;
+        }
+
+        if (!$stmt->execute()){
+            print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
+        }
+    }
+
     function deleteCourse($id, $course) {
         $sql = "DELETE FROM
                     StudentCourse
@@ -184,6 +248,97 @@
             print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
         } else {
             print "Successfully removed the course";
+        }
+    }
+
+    function deleteStudentCourse($id) {
+        $sql = "DELETE FROM
+                    StudentCourse
+                WHERE
+                    CourseID = ?";
+        
+        if (!($stmt = $GLOBALS['db']->prepare($sql))) {
+            print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+        }
+        
+        if (!$stmt->bind_param('i', $id)){
+            print "Binding parameters failed: (" . $stmt->errno . ")" . $stmt->error;
+        }
+
+        if (!$stmt->execute()){
+            print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
+        }
+    }
+
+    function deleteCourseFromDatabase($id) {
+        // Remove studentcourse row
+        deleteStudentCourse($id);
+        
+        // Delete from Course table
+        $sql = "DELETE FROM
+                    Course
+                WHERE
+                    CourseID = ?";
+        
+        if (!($stmt = $GLOBALS['db']->prepare($sql))) {
+            print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+        }
+        
+        if (!$stmt->bind_param('i', $id)){
+            print "Binding parameters failed: (" . $stmt->errno . ")" . $stmt->error;
+        }
+
+        if (!$stmt->execute()){
+            print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
+        } else {
+            print "Successfully deleted the course";
+        }
+    }
+
+    function removeAllCourses($id) {
+        $sql = "DELETE FROM
+                    StudentCourse
+                WHERE
+                    StudentID = ?";
+        
+        if (!($stmt = $GLOBALS['db']->prepare($sql))) {
+            print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+        }
+        
+        if (!$stmt->bind_param('i', $id)){
+            print "Binding parameters failed: (" . $stmt->errno . ")" . $stmt->error;
+        }
+
+        if (!$stmt->execute()){
+            print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
+        }
+    }
+
+    function deleteStudent($id) {
+        // Delete all fees relating to the student
+        deleteAllFees($id);
+        
+        // Remove all courses registered
+        removeAllCourses($id);
+        
+        // Delete the student
+        $sql = "DELETE FROM
+                    Student
+                WHERE
+                    StudentID = ?";
+        
+        if (!($stmt = $GLOBALS['db']->prepare($sql))) {
+            print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+        }
+        
+        if (!$stmt->bind_param('i', $id)){
+            print "Binding parameters failed: (" . $stmt->errno . ")" . $stmt->error;
+        }
+
+        if (!$stmt->execute()){
+            print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
+        } else {
+            print "Successfully removed the student";
         }
     }
 
@@ -272,6 +427,7 @@
     function updateCourse($id, $code, $name, $meeting, $teacher, $sectionID, $sectionLetter) {
         
         $conflict = false;
+        
         // Get all of the students in the course
         $studentSQL = "SELECT StudentCourse.StudentID FROM StudentCourse WHERE StudentCourse.CourseID = $id";
         

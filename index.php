@@ -56,6 +56,43 @@
         <?php
             }
         ?>
+        
+        <?php
+            if ($_SESSION["type"] == 0) {
+        ?>
+        <form action="" method="POST">
+            <select name="studentToDelete">
+                <option hidden>Select Student to Delete...</option>
+                <?php 
+                    // Prepare the SQL statement
+                    $studentSQL = "SELECT
+                                        Student.StudentID,
+                                        Student.StudentFirstName,
+                                        Student.StudentLastName
+                                    FROM
+                                        Student";
+
+                    $query = $GLOBALS["db"]->query($studentSQL);
+                
+                    if (!$query) {
+                        print $GLOBALS["db"]->error;
+                    }
+                
+                    while ($row = mysqli_fetch_assoc($query)) {
+                ?>
+            <option value="<?= $row["StudentID"] ?>"><?= $row["StudentFirstName"] . " " . $row["StudentLastName"] . " (" . $row["StudentID"] . ")" ?></option>
+                <?php
+                    }
+                ?>
+            </select>
+            <input type="submit" name="deleteStudent" value="Delete Student" />
+        </form>
+        <?php
+            }
+            if (isset($_POST["deleteStudent"])) {
+                deleteStudent($_POST["studentToDelete"]);
+            }
+        ?>
     </div>
 </div>
 </body>

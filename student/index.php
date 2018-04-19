@@ -84,8 +84,53 @@
             if ($_SESSION["type"] != 2) {
         ?>
         
-        <a href="../createFee/">Add Fee</a>
+        <a href="../createFee/index.php?id=<?= $_GET["id"] ?>">Add Fee</a>
         <?php
+            }
+        ?>
+        
+        <form action="" method="POST">
+            <select name="feeToDelete">
+                <option hidden>Select Fee to Delete...</option>
+                <?php 
+                    // Prepare the SQL statement
+                    $feeSQL = "SELECT
+                                    Fee.FeeID,
+                                    Fee.FeeType,
+                                    Fee.FeeAmount,
+                                    Fee.FeeDueDate
+                                FROM
+                                    Fee
+                                WHERE
+                                    Fee.StudentID = ?";
+
+                    if (!($stmt = $GLOBALS['db']->prepare($feeSQL))) {
+                        print "Prepare failed: (" . $GLOBALS['db']->errno . ")" . $GLOBALS['db']->error;
+                    }
+                
+                    if (!$stmt->bind_param('i', $_GET["id"])){
+                        print "Binding parameters failed: (" . $stmt->errno . ")" . $stmt->error;
+                    }
+
+                    // Execute the statement
+                    if (!$stmt->execute()){
+                        print "Execute failed: (" . $stmt->errno .")" . $stmt->error;
+                    }
+                
+                    $result = $stmt->get_result();
+                    while ($row = $result->fetch_assoc()) {
+                ?>
+                <option value="<?= $row["FeeID"] ?>"><?= $row["FeeType"] . ": " . $row["FeeAmount"] ?></option>
+                <?php
+                    }
+                ?>
+            </select>
+            <input type="submit" name="deleteFee" value="Delete Fee" />
+        </form>
+        
+        <?php
+            if (isset($_POST["deleteFee"])) {
+                deleteFee($_POST["feeToDelete"]);
             }
         ?>
         
